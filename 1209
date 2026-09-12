@@ -1,0 +1,79 @@
+import random
+
+
+class Character:
+    def __init__(self, name, health, damage):
+        self.name = name
+        self._health = health      # инкапсуляция
+        self._damage = damage
+
+    def get_health(self):
+        return self._health
+
+    def is_alive(self):
+        return self._health > 0
+
+    def attack(self, enemy):
+        damage = random.randint(1, self._damage)
+        enemy.take_damage(damage)
+        print(f"{self.name} бьёт {enemy.name} на {damage}. "
+              f"У {enemy.name} осталось {enemy.get_health()} HP")
+
+    def take_damage(self, damage):
+        self._health -= damage
+
+    def __str__(self):
+        return f"{self.name} ({self.get_health()} HP)"
+
+
+class Elf(Character):
+    def attack(self, enemy):
+        damage = random.randint(1, self._damage) + 2  # эльфы точнее бьют
+        enemy.take_damage(damage)
+        print(f"Эльф {self.name} стреляет в {enemy.name} на {damage}. "
+              f"У {enemy.name} осталось {enemy.get_health()} HP")
+
+
+class Orc(Character):
+    def attack(self, enemy):
+        damage = random.randint(1, self._damage) + 3  # орки бьют сильнее
+        enemy.take_damage(damage)
+        print(f"Орк {self.name} рубит {enemy.name} на {damage}. "
+              f"У {enemy.name} осталось {enemy.get_health()} HP")
+
+
+class Human(Character):
+    pass  
+
+
+class Dwarf(Character):
+    def attack(self, enemy):
+        damage = random.randint(1, self._damage)
+        enemy.take_damage(damage)
+        print(f"Гном {self.name} бьёт молотом {enemy.name} на {damage}. "
+              f"У {enemy.name} осталось {enemy.get_health()} HP")
+
+
+fighters = [
+    Elf("тоя", 80, 12),
+    Orc("акито", 110, 15),
+    Human("руи", 100, 14),
+    Dwarf("цукаса", 120, 10),
+]
+
+round_num = 1
+while sum(f.is_alive() for f in fighters) > 1:
+    print(f"\n--- Раунд {round_num} ---")
+    for fighter in fighters:
+        if not fighter.is_alive():
+            continue
+        enemies = [f for f in fighters if f.is_alive() and f is not fighter]
+        if not enemies:
+            break
+        target = random.choice(enemies)
+        fighter.attack(target)
+    round_num += 1
+
+for f in fighters:
+    if f.is_alive():
+        print(f"\nПобедитель: {f}")
