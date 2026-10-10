@@ -1,0 +1,213 @@
+import matplotlib
+
+matplotlib.use('Qt5Agg')
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+
+import threading
+import time
+import random
+import json
+import sqlite3
+import os
+from datetime import datetime
+
+DB_NAME = "data.db"
+WAL_FILE = "wal.log"
+JSON_FILE = "trends.json"
+
+OBJECT_IDS = [f"obj_{i}" for i in range(1000)]
+
+
+def get_expected_type(obj_id):
+    idx = int(obj_id.split('_')[1])
+    if idx % 3 == 0: return int
+    if idx % 3 == 1: return float
+    return bool
+
+
+#  БАЗА ДАННЫХ (SQLite)
+def init_db():
+    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            source_id INTEGER,
+            obj_id TEXT,
+            value TEXT,
+            type TEXT
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS trends (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            obj_id TEXT,
+            value REAL
+        )
+    ''')
+    conn.commit()
+    return conn
+
+
+#  WAL ЖУРНАЛ
+wal_lock = threading.Lock()
+
+
+def write_to_wal(data):
+    with wal_lock:
+        with open(WAL_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(data) + "\n")
+
+
+def recover_from_wal(conn):
+    if not os.path.exists(WAL_FILE):
+        return
+
+    print("Восстановление из WAL...")
+    with open(WAL_FILE, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    cursor = conn.cursor()
+    for line in lines:
+        try:
+            data = json.loads(line.strip())
+            cursor.execute('''
+                INSERT INTO logs (timestamp, source_id, obj_id, value, type)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (data['timestamp'], data['source_id'], data['obj_id'], str(data['value']), data['type']))
+        except Exception as e:
+            print(f"Ошибка восстановления строки: {e}")
+
+    conn.commit()
+    open(WAL_FILE, "w").close()
+    print("Восстановление завершено.")
+
+
+#  ЛОГИКА ИСТОЧНИКОВ
+def data_source(source_id, stop_event):
+    # Каждый поток создает свое соединение с БД
+    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
+    cursor = conn.cursor()
+
+    while not stop_event.is_set():
+        num_values = random.randint(100, 600)
+
+        for _ in range(num_values):
+            obj_id = random.choice(OBJECT_IDS)
+            expected_type = get_expected_type(obj_id)
+
+            if expected_type == int:
+                val = random.randint(0, 1000)
+            elif expected_type == float:
+                val = random.uniform(0, 1000)
+            else:
+                val = random.choice([True, False])
+
+            if random.random() < 0.01:
+                val = "ERROR_STRING"
+
+            timestamp = datetime.now().isoformat()
+
+            # 1. Сначала в WAL
+            log_entry = {
+                "timestamp": timestamp,
+                "source_id": source_id,
+                "obj_id": obj_id,
+                "value": val,
+                "type": str(type(val).__name__)
+            }
+            write_to_wal(log_entry)
+
+            # 2. Валидация и запись в SQL
+            if type(val) == expected_type:
+                try:
+                    cursor.execute('''
+                        INSERT INTO logs (timestamp, source_id, obj_id, value, type)
+                        VALUES (?, ?, ?, ?, ?)
+                    ''', (timestamp, source_id, obj_id, str(val), str(type(val).__name__)))
+
+                    if obj_id == "obj_0":
+                        cursor.execute('''
+                            INSERT INTO trends (timestamp, obj_id, value)
+                            VALUES (?, ?, ?)
+                        ''', (timestamp, obj_id, float(val)))
+
+                    conn.commit()
+                except Exception as e:
+                    print(f"SQL Error: {e}")
+            else:
+                pass
+
+        time.sleep(1)
+
+    conn.close()
+
+
+#  ГРАФИК
+class TrendPlotter:
+    def __init__(self):
+        self.fig, self.ax = plt.subplots()
+        self.conn = sqlite3.connect(DB_NAME, check_same_thread=False)
+        self.cursor = self.conn.cursor()
+        self.target_obj = "obj_0"
+
+    def update(self, frame):
+        self.cursor.execute('''
+            SELECT timestamp, value FROM trends 
+            WHERE obj_id = ? ORDER BY id DESC LIMIT 20
+        ''', (self.target_obj,))
+        rows = self.cursor.fetchall()
+
+        if rows:
+            rows.reverse()
+            y_data = [float(r[1]) for r in rows]
+
+            self.ax.clear()
+            self.ax.plot(range(len(y_data)), y_data, marker='o', color='b')
+            self.ax.set_title(f"Тренд для {self.target_obj}")
+            self.ax.set_ylabel("Значение")
+            self.ax.set_xlabel("Последние 20 записей")
+            self.ax.grid(True)
+
+        # Сохранение трендов в JSON
+        data = [{"time": r[0], "value": r[1]} for r in rows]
+        with open(JSON_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+
+
+#  MAIN
+if __name__ == "__main__":
+    conn = init_db()
+    recover_from_wal(conn)
+
+    stop_event = threading.Event()
+    threads = []
+
+    print("Запуск 4 источников данных...")
+    for i in range(4):
+        t = threading.Thread(target=data_source, args=(i, stop_event))
+        t.daemon = True
+        t.start()
+        threads.append(t)
+
+    print("Запуск графического интерфейса...")
+    plotter = TrendPlotter()
+
+    ani = FuncAnimation(
+        plotter.fig,
+        plotter.update,
+        interval=2000,
+        cache_frame_data=False
+    )
+
+    try:
+        plt.show()
+    except KeyboardInterrupt:
+        print("Остановка...")
+        stop_event.set()
+        for t in threads:
+            t.join()
+        conn.close()
