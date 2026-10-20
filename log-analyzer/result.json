@@ -1,0 +1,77 @@
+{
+  "statistics": {
+    "total_lines": 10,
+    "valid_lines": 7,
+    "invalid_lines": 3,
+    "filtered_events_count": 7
+  },
+  "summary": {
+    "by_level": {
+      "WARN": 2,
+      "ERROR": 3,
+      "INFO": 1,
+      "DEBUG": 1
+    },
+    "by_source": {
+      "auth-api": 2,
+      "payment-worker": 1,
+      "inventory-api": 3,
+      "gateway": 1
+    },
+    "top_errors": {
+      "PAYMENT_TIMEOUT": 1,
+      "STOCK_LOW": 1
+    }
+  },
+  "filtered_events": [
+    {
+      "timestamp": "2026-09-01T00:08:59+00:00",
+      "level": "WARN",
+      "source": "auth-api",
+      "eventCode": "AUTH_LOGIN_OK",
+      "message": "User session created"
+    },
+    {
+      "timestamp": "2026-09-01T00:20:18+00:00",
+      "level": "ERROR",
+      "source": "payment-worker",
+      "eventCode": "PAYMENT_TIMEOUT",
+      "message": "Payment provider timed out"
+    },
+    {
+      "timestamp": "2026-09-01T00:47:04+00:00",
+      "level": "INFO",
+      "source": "auth-api",
+      "eventCode": "AUTH_TOKEN_EXPIRED",
+      "message": "Access token expired"
+    },
+    {
+      "timestamp": "2026-09-04T09:00:00",
+      "level": "WARN",
+      "source": "inventory-api",
+      "eventCode": "STOCK_LOW",
+      "message": "timestamp lacks ISO 8601"
+    },
+    {
+      "timestamp": "2026-09-04T14:23:11+00:00",
+      "level": "DEBUG",
+      "source": "gateway",
+      "eventCode": "HTTP_502",
+      "message": "Upstream service returned 502"
+    },
+    {
+      "timestamp": "2026-09-04T14:31:00+00:00",
+      "level": "ERROR",
+      "source": "inventory-api",
+      "eventCode": "STOCK_LOW",
+      "message": "Available stock below threshold"
+    },
+    {
+      "timestamp": "2026-09-04T14:32:22+00:00",
+      "level": "ERROR",
+      "source": "inventory-api",
+      "eventCode": "STOCK_RESERVED",
+      "message": "Stock reserved"
+    }
+  ]
+}

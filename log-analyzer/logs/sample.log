@@ -1,0 +1,10 @@
+2026-09-01T00:08:59Z | WARN | auth-api | AUTH_LOGIN_OK | User session created
+2026-09-01T00:20:18Z | ERROR | payment-worker | PAYMENT_TIMEOUT | Payment provider timed out
+2026-09-01T00:47:04Z | INFO | auth-api | AUTH_TOKEN_EXPIRED | Access token expired
+not-a-timestamp | ERROR | orders-api | ORDER_REJECTED | timestamp is invalid
+2026-09-02T08:12:00Z | NOTICE | gateway | HTTP_502 | unsupported level
+2026-09-03T09:00:00Z | INFO | auth-api | | missing event code
+2026-09-04 09:00:00 | WARN | inventory-api | STOCK_LOW | timestamp lacks ISO 8601
+2026-09-04T14:23:11Z | DEBUG | gateway | HTTP_502 | Upstream service returned 502
+2026-09-04T14:31:00Z | ERROR | inventory-api | STOCK_LOW | Available stock below threshold
+2026-09-04T14:32:22Z | ERROR | inventory-api | STOCK_RESERVED | Stock reserved
